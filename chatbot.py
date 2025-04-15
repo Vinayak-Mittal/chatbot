@@ -1,188 +1,81 @@
 import streamlit as st
-import random
 import speech_recognition as sr
-import pyttsx3
-import os
+from gtts import gTTS
+import tempfile
 
-# Set page config
-st.set_page_config(page_title="MindMate - Mental Health Chatbot", page_icon="🧠", layout="centered")
+# --- Helper Functions ---
+def get_response(user_input):
+    # Predefined responses
+    responses = {
+        "hi": "Hello! How can I help you today?",
+        "how are you": "I'm doing well, thank you for asking! How about you?",
+        "sad": "I'm really sorry you're feeling this way, but remember, you're not alone. Talking about it can help!",
+        "stressed": "It's okay to feel stressed sometimes. Take a deep breath and focus on one thing at a time.",
+        "motivated": "You are stronger than you think! Keep pushing forward, and success will follow.",
+        "fitness": "Remember, regular exercise is great for both the body and mind! Try to stay active every day."
+    }
 
-# Inject CSS for custom theme
-st.markdown("""
-    <style>
-        html, body, [class*="css"]  {
-            background-color: #0f1117;
-            color: #ffffff;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        input, .stTextInput>div>div>input {
-            background-color: #1c1f26;
-            color: white;
-        }
-        .stButton>button {
-            background-color: #4A90E2;
-            color: white;
-            border-radius: 10px;
-        }
-        .stButton>button:hover {
-            background-color: #357ABD;
-        }
-        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-            color: #E5E5E5;
-        }
-    </style>
-""", unsafe_allow_html=True)
+    return responses.get(user_input.lower(), "I'm here to listen, feel free to share more.")
 
-st.title("🧠 MindMate")
-st.markdown("### Your Mental Health Companion - Now with Voice Support 🎙️")
+def speak_response(response):
+    # Convert the response to speech using gTTS
+    tts = gTTS(text=response, lang='en')
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+        tts.save(fp.name)
+        st.audio(fp.name, format="audio/mp3")
 
-# Initialize session state
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# --- Streamlit UI ---
+st.title("MindMate - Your Mental Health Companion")
+st.markdown("### Chat with me for support, motivation, and tips!")
 
-# Text-to-Speech Engine
-engine = pyttsx3.init()
-engine.setProperty('rate', 160)
+# Chat history storage
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-def speak(text):
-    engine.say(text)
-    engine.runAndWait()
+# Input box and send button
+user_input = st.text_input("Type your message here", "")
 
-# Predefined replies
-sad_replies = [
-    "I'm really sorry you're feeling this way. You're not alone. 🌧️",
-    "Even rainy days end eventually. 🌈",
-    "Let it out. You’re not weak for feeling sad. 💙",
-    "You're not a burden. You're a human being. 🤗"
-]
-anxious_replies = [
-    "Take a deep breath. You’ve got this. 🌬️",
-    "Let’s take it one step at a time. 🪜",
-    "Ground yourself. 5 things you see, 4 you touch...",
-    "Even your worst days only last 24 hours. ⏳"
-]
-stress_replies = [
-    "Under pressure? Let’s unload it together. 💼",
-    "You don’t have to do it all at once. 🧠",
-    "Pause. Breathe. You’re allowed to rest. 🧘",
-    "What’s stressing you out the most?"
-]
-generic_replies = [
-    "Tell me more. I'm here to listen. 👂",
-    "You are strong for sharing. 💪",
-    "Your feelings matter. 🫶",
-    "Let’s talk it through. What’s up?"
-]
-greeting_replies = [
-    "Hi there! How are you doing today?",
-    "Hello! What’s on your mind? 😊",
-    "Hey friend, want to talk about anything?",
-]
-thank_you_replies = [
-    "You're welcome. You’re doing great. 💙",
-    "Glad I could help. Take care. 😊"
-]
-bye_replies = [
-    "Goodbye! Be kind to yourself. 👋",
-    "Take care! I’m here anytime. ❤️"
-]
-tips = [
-    "Try journaling your thoughts. ✍️",
-    "Step outside for 5 mins. Fresh air helps. 🌿",
-    "Drink water. Stretch a bit. 🧘",
-    "Play calming music. 🎵"
-]
-motivational_quotes = [
-    "You are braver than you believe. 💪",
-    "Tough times don’t last. You do. 🌟",
-    "Your story isn’t over yet. ✍️"
-]
-fitness_tips = [
-    "Walk for 10 minutes daily. 🚶",
-    "Stretch every hour. 🧘‍♂️",
-    "Hydrate with 2-3L water daily. 💧",
-]
+if user_input:
+    response = get_response(user_input)
+    
+    # Store conversation history
+    st.session_state.history.append(f"You: {user_input}")
+    st.session_state.history.append(f"MindMate: {response}")
+    
+    # Display chat history
+    for message in st.session_state.history:
+        st.write(message)
 
-# Analyzer
-def get_bot_reply(user_input):
-    ui = user_input.lower()
-    if any(x in ui for x in ["sad", "cry", "depressed", "hurt"]):
-        return random.choice(sad_replies) + "\n💡 Tip: " + random.choice(tips)
-    elif any(x in ui for x in ["anxious", "panic", "scared", "worried"]):
-        return random.choice(anxious_replies) + "\n💡 Tip: " + random.choice(tips)
-    elif any(x in ui for x in ["stress", "tired", "burned", "overworked"]):
-        return random.choice(stress_replies) + "\n💡 Tip: " + random.choice(tips)
-    elif any(x in ui for x in ["hi", "hello", "hey"]):
-        return random.choice(greeting_replies)
-    elif "thank" in ui:
-        return random.choice(thank_you_replies)
-    elif any(x in ui for x in ["bye", "goodbye"]):
-        return random.choice(bye_replies)
-    else:
-        return random.choice(generic_replies)
+    # Output response as audio
+    speak_response(response)
 
-# Voice Input Button
-def voice_input():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ Speak now...")
-        try:
-            audio = r.listen(source, timeout=5)
-            user_voice_input = r.recognize_google(audio)
-            st.success(f"You said: {user_voice_input}")
-            return user_voice_input
-        except sr.UnknownValueError:
-            st.error("Couldn't understand. Try again.")
-        except sr.RequestError:
-            st.error("Speech Recognition service unavailable.")
-    return ""
+# --- Daily Motivation Button ---
+if st.button('Get Daily Motivation'):
+    motivation_quotes = [
+        "Believe in yourself! The sky's the limit.",
+        "Success doesn’t come from what you do occasionally, it comes from what you do consistently.",
+        "Don't stop when you're tired. Stop when you're done.",
+        "The only way to do great work is to love what you do."
+    ]
+    motivational_quote = motivation_quotes[st.session_state.history.count('You: motivated') % len(motivation_quotes)]
+    st.write(f"**Motivation for today:** {motivational_quote}")
 
-# Buttons
-col1, col2, col3 = st.columns([2, 1, 1])
-with col2:
-    if st.button("🌟 Daily Motivation"):
-        quote = random.choice(motivational_quotes)
-        st.success(f"Quote: _{quote}_")
-        speak(quote)
+    # Output motivation as speech
+    speak_response(motivational_quote)
 
-with col3:
-    if st.button("💪 Fitness Tip"):
-        tip = random.choice(fitness_tips)
-        st.info(f"Fitness Tip: {tip}")
-        speak(tip)
+# --- Fitness Tips Button ---
+if st.button('Get Fitness Tip'):
+    fitness_tips = [
+        "Exercise daily for at least 30 minutes to keep your body and mind fit.",
+        "Drinking enough water is crucial for overall health, especially before and after workouts.",
+        "Don't forget to warm up before and cool down after your workout to avoid injury.",
+        "Remember, consistency is key. A small workout every day is better than one big workout a week."
+    ]
+    fitness_tip = fitness_tips[st.session_state.history.count('You: fitness') % len(fitness_tips)]
+    st.write(f"**Fitness Tip for today:** {fitness_tip}")
 
-# Input Methods
-st.markdown("### Talk to me 💬")
-col4, col5 = st.columns([3, 1])
-with col4:
-    with st.form("chat_form", clear_on_submit=True):
-        user_input = st.text_input("Type something...")
-        submit = st.form_submit_button("Send")
-with col5:
-    if st.button("🎤 Voice Input"):
-        user_input = voice_input()
-        if user_input:
-            submit = True
-
-if submit and user_input:
-    bot_reply = get_bot_reply(user_input)
-    st.session_state.chat_history.append(("You", user_input))
-    st.session_state.chat_history.append(("MindMate", bot_reply))
-    speak(bot_reply)
-
-# Display Chat History
-st.markdown("---")
-st.subheader("📜 Chat History")
-for sender, msg in st.session_state.chat_history:
-    if sender == "You":
-        st.markdown(f"**🧍 You:** {msg}")
-    else:
-        st.markdown(f"**🤖 MindMate:** {msg}")
-
-
-
-
-
+    # Output fitness tip as speech
+    speak_response(fitness_tip)
 
 
 
